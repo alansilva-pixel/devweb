@@ -49,11 +49,13 @@
 
 @layer base {
   * {
-    @apply border-border;
+        border-color: #e5e7eb; /* cor padrão */
+
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    background-color: #ffffff;
+    color: #000000;
     font-family: 'Roboto', sans-serif;
   }
 }
