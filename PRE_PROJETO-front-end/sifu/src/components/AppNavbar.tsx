@@ -1,17 +1,22 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import ufersaLogo from "@/assets/ufersa-logo.png";
+import sifuLogo from "@/assets/sifu.png";
 
 const AppNavbar = () => {
   const { user, logout } = useAuth();
 
   return (
-    <header className="h-14 bg-primary flex items-center justify-between px-6 shadow-sm">
-      <div className="flex items-center gap-3">
-        <img src={ufersaLogo} alt="UFERSA" width={36} height={36} className="bg-primary-foreground rounded-full p-0.5" />
-        <span className="text-primary-foreground font-bold text-lg tracking-tight">SIFU</span>
-      </div>
+    <header className="bg-primary flex items-center justify-between px-6 shadow-sm">
+      <a
+        href="https://sifu.web.ufersa.dev.br/"
+        target="_self"
+        rel="noopener noreferrer"
+        className="hover:opacity-80 transition-opacity p-3"
+        title="retorno para SIFU"
+      >
+        <img src={sifuLogo} alt="SIFU" width={64} height={64} className="rounded" />
+      </a>
       {user && (
         <div className="flex items-center gap-4">
           <span className="text-primary-foreground text-sm">{user.nome}</span>

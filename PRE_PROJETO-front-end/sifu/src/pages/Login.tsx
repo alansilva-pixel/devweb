@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import ufersaLogo from "@/assets/ufersa-logo.png";
+import sifuLogo from "@/assets/sifu.png";
 
 const Login = () => {
   const { login } = useAuth();
@@ -17,7 +18,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex items-center justify-center bg-background relative">
+      <a
+        href="https://sifu.web.ufersa.dev.br/"
+        target="_self"
+        rel="noopener noreferrer"
+        className="absolute top-6 left-6 hover:opacity-80 transition-opacity"
+        title="retorno para SIFU"
+      >
+        <img src={sifuLogo} alt="SIFU" width={64} height={64} className="rounded" />
+      </a>
       <Card className="w-full max-w-md shadow-lg rounded-lg">
         <CardContent className="pt-8 pb-8 px-8">
           <div className="flex flex-col items-center mb-8">
