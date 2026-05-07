@@ -8,24 +8,18 @@ import ufersaLogo from "@/assets/ufersa-logo.png";
 import sifuLogo from "@/assets/sifu.png";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, loginWithCredentials } = useAuth();
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (matricula && senha) login(matricula, senha);
+    if (matricula && senha) loginWithCredentials(matricula, senha);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative">
-      <a
-        href="https://sifu.web.ufersa.dev.br/"
-        target="_self"
-        rel="noopener noreferrer"
-        className="absolute top-6 left-6 hover:opacity-80 transition-opacity"
-        title="retorno para SIFU"
-      >
+      <a href="https://sifu.web.ufersa.dev.br/" className="absolute top-6 left-6 hover:opacity-80 transition-opacity" title="retorno para SIFU">
         <img src={sifuLogo} alt="SIFU" width={64} height={64} className="rounded" />
       </a>
       <Card className="w-full max-w-md shadow-lg rounded-lg">
@@ -36,7 +30,6 @@ const Login = () => {
               SIFU - Sistema Integrado Acadêmico
             </h1>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="matricula">Matrícula</Label>
@@ -61,6 +54,17 @@ const Login = () => {
               Entrar
             </Button>
           </form>
+          <div className="relative flex items-center justify-center my-4">
+            <div className="border-t w-full" />
+            <span className="bg-white px-2 text-sm text-muted-foreground absolute">ou</span>
+          </div>
+          <Button variant="outline" className="w-full" size="lg" onClick={login}>
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              className="w-5 h-5 mr-2"
+            />
+            Entrar com Google
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { signInWithRedirect, signOut, getCurrentUser, fetchUserAttributes } from "aws-amplify/auth";
+import { Hub } from "aws-amplify/utils";
 
 type User = {
   nome: string;
@@ -8,7 +10,8 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
-  login: (matricula: string, senha?: string) => void;
+  login: () => void;
+  loginWithCredentials: (matricula: string, senha?: string) => void;
   logout: () => void;
 };
 
@@ -17,17 +20,48 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (matricula: string, _senha?: string) => {
+  const loadUser = async () => {
+    try {
+      await getCurrentUser();
+      const attrs = await fetchUserAttributes();
+      setUser({
+        nome: attrs.name || attrs.email || "Usuário",
+        matricula: attrs.email || "",
+        email: attrs.email || "",
+      });
+    } catch {
+      setUser(null);
+    }
+  };
+
+  useEffect(() => {
+    loadUser();
+
+    const unsubscribe = Hub.listen("auth", ({ payload }) => {
+      if (payload.event === "signInWithRedirect") loadUser();
+      if (payload.event === "signedOut") setUser(null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const login = () => signInWithRedirect({ provider: "Google" });
+
+  const loginWithCredentials = (matricula: string, _senha?: string) => {
     setUser({
       nome: "Aluno Teste",
       matricula,
-      email: `${matricula}@alunos.ufersa.edu.br`
+      email: `${matricula}@alunos.ufersa.edu.br`,
     });
   };
-  const logout = () => setUser(null);
+
+  const logout = () => {
+    signOut().catch(() => {});
+    setUser(null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, loginWithCredentials, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -35,8 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth deve ser usado dentro de AuthProvider");
-  }
+  if (!context) throw new Error("useAuth deve ser usado dentro de AuthProvider");
   return context;
 }
