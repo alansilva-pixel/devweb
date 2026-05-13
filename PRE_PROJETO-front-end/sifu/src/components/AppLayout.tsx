@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import AppNavbar from "./AppNavbar";
 import AppSidebar from "./AppSidebar";
-import Chatbot from "./chatbot";
+import Chatbot from "./Chatbot";
 
 const AppLayout = () => {
   return (
