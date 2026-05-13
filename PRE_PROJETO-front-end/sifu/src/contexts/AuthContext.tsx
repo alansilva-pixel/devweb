@@ -35,12 +35,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    loadUser();
-
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
-      if (payload.event === "signInWithRedirect") loadUser();
-      if (payload.event === "signedOut") setUser(null);
+      switch (payload.event) {
+        case "signInWithRedirect":
+          loadUser();
+          break;
+        case "signInWithRedirect_failure":
+          console.error("Erro no login com Google:", payload.data);
+          setUser(null);
+          break;
+        case "signedOut":
+          setUser(null);
+          break;
+      }
     });
+
+    // Tenta carregar usuário já logado
+    loadUser();
 
     return unsubscribe;
   }, []);

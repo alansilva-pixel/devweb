@@ -12,8 +12,8 @@ Amplify.configure({
         oauth: {
           domain: "us-east-180jtnciqe.auth.us-east-1.amazoncognito.com",
           scopes: ["email", "openid", "profile"],
-          redirectSignIn: ["https://alanalmeida.sifu5.web.ufersa.dev.br", "http://localhost:5173/"],
-          redirectSignOut: ["https://alanalmeida.sifu5.web.ufersa.dev.br", "http://localhost:5173/"],
+          redirectSignIn: ["https://alanalmeida.sifu5.web.ufersa.dev.br", "http://localhost:5173"],
+          redirectSignOut: ["https://alanalmeida.sifu5.web.ufersa.dev.br", "http://localhost:5173"],
           responseType: "code",
         },
       },
