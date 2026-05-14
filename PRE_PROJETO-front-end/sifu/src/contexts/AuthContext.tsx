@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Hub event:", payload.event);
       switch (payload.event) {
         case "signInWithRedirect":
+        case "signedIn":          // ← adicione essa linha
           loadUser();
           break;
         case "signInWithRedirect_failure":
