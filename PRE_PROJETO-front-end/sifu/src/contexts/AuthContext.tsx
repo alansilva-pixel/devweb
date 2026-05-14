@@ -10,7 +10,7 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
-  login: () => void;
+  login: () => Promise<void>;
   loginWithCredentials: (matricula: string, senha?: string) => void;
   logout: () => void;
 };
@@ -61,7 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const login = () => signInWithRedirect({ provider: "Google" });
+  const login = async () => {
+    try {
+      await signOut();
+    } catch {
+      // ignora erro
+    }
+    await signInWithRedirect({ provider: "Google" });
+  };
 
   const loginWithCredentials = (matricula: string, _senha?: string) => {
     setUser({
