@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { signInWithRedirect, signOut, getCurrentUser, fetchUserAttributes } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
+import { fetchAuthSession } from "aws-amplify/auth";  
 
 type User = {
   nome: string;
@@ -21,18 +22,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const loadUser = async () => {
-    try {
-      await getCurrentUser();
-      const attrs = await fetchUserAttributes();
-      setUser({
-        nome: attrs.name || attrs.email || "Usuário",
-        matricula: attrs.email || "",
-        email: attrs.email || "",
-      });
-    } catch {
+  try {
+    const session = await fetchAuthSession();
+    const idToken = session.tokens?.idToken;
+    
+    if (!idToken) {
       setUser(null);
+      return;
     }
-  };
+
+    // Decodifica o JWT sem chamada extra ao Cognito
+    const payload = idToken.payload;
+    setUser({
+      nome: String(payload["name"] || payload["email"] || "Usuário"),
+      matricula: String(payload["email"] || ""),
+      email: String(payload["email"] || ""),
+    });
+  } catch {
+    setUser(null);
+  }
+};
 
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
