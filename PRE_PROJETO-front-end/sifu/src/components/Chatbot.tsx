@@ -26,12 +26,14 @@ const Chatbot = () => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
+      
+      console.log("Token enviado:", token?.substring(0, 20) + "..."); // debug
 
       const res = await fetch(API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token || "",
+          "Authorization": token ?? "",
         },
         body: JSON.stringify({ message: userMsg }),
       });
