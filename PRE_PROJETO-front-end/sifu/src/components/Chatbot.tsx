@@ -3,7 +3,7 @@ import { fetchAuthSession } from "aws-amplify/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const API_URL = "https://fecslb5103.execute-api.us-east-1.amazonaws.com/prod";
+const API_URL = "https://fecslb5103.execute-api.us-east-1.amazonaws.com/prod/chatbot";
 
 type Message = {
   from: "user" | "bot";
