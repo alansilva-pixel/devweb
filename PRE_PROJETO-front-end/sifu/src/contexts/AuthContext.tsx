@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
+      console.log("Hub event:", payload.event);
       switch (payload.event) {
         case "signInWithRedirect":
           loadUser();
@@ -50,8 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Tenta carregar usuário já logado
-    loadUser();
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasCode = urlParams.has("code");
+
+    if (!hasCode) {
+      loadUser();
+    }
 
     return unsubscribe;
   }, []);
