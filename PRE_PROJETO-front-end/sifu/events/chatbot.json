@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/chatbot",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"chat\":\"SEU_NOME\"}"
+}

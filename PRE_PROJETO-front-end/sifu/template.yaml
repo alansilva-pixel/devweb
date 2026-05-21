@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API REST do chatbot do SIFU para a disciplina de desenvolvimento web.
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: nodejs24.x
+    Architectures:
+      - x86_64
+
+Resources:
+  SifuChatbotApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      EndpointConfiguration: REGIONAL
+      Cors:
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type'"
+        AllowOrigin: "'*'"
+
+  SifuChatbotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sifu-chatbot
+      CodeUri: lambda/chatbot/
+      Handler: app.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Events:
+        ChatbotPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SifuChatbotApi
+            Path: /chatbot
+            Method: post
+
+Outputs:
+  ChatbotApiUrl:
+    Description: URL da rota POST /chatbot no API Gateway.
+    Value: !Sub https://${SifuChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/chatbot
+  ChatbotFunctionName:
+    Description: Nome da funcao Lambda criada.
+    Value: !Ref SifuChatbotFunction
