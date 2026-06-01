@@ -1,6 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: API REST do chatbot do SIFU para a disciplina de desenvolvimento web.
+Description: API REST do SIFU para a disciplina de desenvolvimento web.
+
+Parameters:
+  StudentName:
+    Type: String
+    Default: alana
+    AllowedPattern: '^[a-z0-9-]+$'
+    Description: Nome usado nos recursos da atividade, em letras minusculas.
 
 Globals:
   Function:
@@ -16,9 +23,42 @@ Resources:
       StageName: Prod
       EndpointConfiguration: REGIONAL
       Cors:
-        AllowMethods: "'POST,OPTIONS'"
+        AllowMethods: "'POST,PUT,OPTIONS'"
         AllowHeaders: "'Content-Type'"
         AllowOrigin: "'*'"
+
+  SifuProfileBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub sifu-${StudentName}-2026.1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+              - POST
+              - GET
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+
+  SifuProfileTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub sifu-${StudentName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
 
   SifuChatbotFunction:
     Type: AWS::Serverless::Function
@@ -35,6 +75,25 @@ Resources:
             Path: /chatbot
             Method: post
 
+  SifuProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sifu-profile
+      CodeUri: lambda/profile/
+      Handler: app.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables:
+          PROFILE_BUCKET: !Ref SifuProfileBucket
+          PROFILE_TABLE: !Ref SifuProfileTable
+      Events:
+        ProfilePut:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SifuChatbotApi
+            Path: /profile
+            Method: put
+
 Outputs:
   ChatbotApiUrl:
     Description: URL da rota POST /chatbot no API Gateway.
@@ -42,3 +101,15 @@ Outputs:
   ChatbotFunctionName:
     Description: Nome da funcao Lambda criada.
     Value: !Ref SifuChatbotFunction
+  ProfileApiUrl:
+    Description: URL da rota PUT /profile no API Gateway.
+    Value: !Sub https://${SifuChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/profile
+  ProfileFunctionName:
+    Description: Nome da funcao Lambda de perfil.
+    Value: !Ref SifuProfileFunction
+  ProfileBucketName:
+    Description: Nome do bucket S3 de fotos de perfil.
+    Value: !Ref SifuProfileBucket
+  ProfileTableName:
+    Description: Nome da tabela DynamoDB de perfis.
+    Value: !Ref SifuProfileTable

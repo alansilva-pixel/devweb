@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Send, FileText, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Send, FileText, HelpCircle, UserRound } from "lucide-react";
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/enviar", label: "Enviar Pré-Projeto", icon: Send },
   { to: "/submissoes", label: "Minhas Submissões", icon: FileText },
+  { to: "/perfil", label: "Perfil", icon: UserRound },
   { to: "/ajuda", label: "Ajuda", icon: HelpCircle },
 ];
 

@@ -1,0 +1,8 @@
+{
+  "httpMethod": "PUT",
+  "path": "/profile",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"nome\":\"Alana\",\"email\":\"alana@alunos.ufersa.edu.br\",\"matricula\":\"2026000000\",\"curso\":\"Ciência da Computação\",\"telefone\":\"(84) 99999-9999\",\"bio\":\"Estudante usando o SIFU.\",\"photoFileName\":\"perfil.txt\",\"photoContentType\":\"text/plain\",\"photoBase64\":\"Zm90byBkZSB0ZXN0ZQ==\"}"
+}

@@ -12,6 +12,7 @@ import SubmitProject from "@/pages/SubmitProject";
 import Confirmation from "@/pages/Confirmation";
 import Submissions from "@/pages/Submissions";
 import Help from "@/pages/Help";
+import Profile from "@/pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const AuthGate = () => {
           <Route path="/enviar" element={<SubmitProject />} />
           <Route path="/confirmacao" element={<Confirmation />} />
           <Route path="/submissoes" element={<Submissions />} />
+          <Route path="/perfil" element={<Profile />} />
           <Route path="/ajuda" element={<Help />} />
         </Route>
         <Route path="*" element={<NotFound />} />
