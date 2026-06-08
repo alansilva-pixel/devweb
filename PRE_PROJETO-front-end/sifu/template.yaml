@@ -8,10 +8,29 @@ Parameters:
     Default: alana
     AllowedPattern: '^[a-z0-9-]+$'
     Description: Nome usado nos recursos da atividade, em letras minusculas.
+  CognitoUserPoolId:
+    Type: String
+    Default: us-east-1_80JtNcIqE
+    Description: User Pool Cognito usado no login da aplicacao.
+  ApiCustomDomainName:
+    Type: String
+    Default: api.alanalmeida.sifu5.web.ufersa.dev.br
+    Description: Dominio customizado desejado para a API.
+  ApiCertificateArn:
+    Type: String
+    Default: ''
+    Description: ARN do certificado ACM em us-east-1 para habilitar o dominio customizado da API.
+  BedrockModelId:
+    Type: String
+    Default: amazon.nova-micro-v1:0
+    Description: Modelo Bedrock usado como IA do chatbot quando disponivel no laboratorio.
+
+Conditions:
+  HasApiCertificate: !Not [!Equals [!Ref ApiCertificateArn, '']]
 
 Globals:
   Function:
-    Timeout: 10
+    Timeout: 20
     Runtime: nodejs24.x
     Architectures:
       - x86_64
@@ -24,8 +43,35 @@ Resources:
       EndpointConfiguration: REGIONAL
       Cors:
         AllowMethods: "'POST,PUT,OPTIONS'"
-        AllowHeaders: "'Content-Type'"
+        AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: SifuCognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          SifuCognitoAuthorizer:
+            UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+            Identity:
+              Header: Authorization
+
+  SifuApiCustomDomain:
+    Type: AWS::ApiGateway::DomainName
+    Condition: HasApiCertificate
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ApiCertificateArn
+
+  SifuApiBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Condition: HasApiCertificate
+    DependsOn: SifuChatbotApiProdStage
+    Properties:
+      DomainName: !Ref SifuApiCustomDomain
+      RestApiId: !Ref SifuChatbotApi
+      Stage: Prod
 
   SifuProfileBucket:
     Type: AWS::S3::Bucket
@@ -60,6 +106,22 @@ Resources:
         - AttributeName: email
           KeyType: HASH
 
+  SifuChatMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub sifu-${StudentName}-chat
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+
   SifuChatbotFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -67,6 +129,10 @@ Resources:
       CodeUri: lambda/chatbot/
       Handler: app.handler
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables:
+          CHAT_MESSAGES_TABLE: !Ref SifuChatMessagesTable
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
       Events:
         ChatbotPost:
           Type: Api
@@ -93,6 +159,8 @@ Resources:
             RestApiId: !Ref SifuChatbotApi
             Path: /profile
             Method: put
+            Auth:
+              Authorizer: NONE
 
 Outputs:
   ChatbotApiUrl:
@@ -101,6 +169,16 @@ Outputs:
   ChatbotFunctionName:
     Description: Nome da funcao Lambda criada.
     Value: !Ref SifuChatbotFunction
+  ChatMessagesTableName:
+    Description: Nome da tabela DynamoDB de historico do chat.
+    Value: !Ref SifuChatMessagesTable
+  ApiCustomDomainName:
+    Description: Dominio customizado planejado para a API.
+    Value: !Ref ApiCustomDomainName
+  ApiCustomDomainRegionalTarget:
+    Condition: HasApiCertificate
+    Description: Alvo regional para criar o CNAME do dominio customizado da API.
+    Value: !GetAtt SifuApiCustomDomain.RegionalDomainName
   ProfileApiUrl:
     Description: URL da rota PUT /profile no API Gateway.
     Value: !Sub https://${SifuChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/profile

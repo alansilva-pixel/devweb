@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { fetchAuthSession } from "aws-amplify/auth";
+import { MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const API_URL = "https://fecslb5103.execute-api.us-east-1.amazonaws.com/prod/chatbot";
+const API_URL =
+  import.meta.env.VITE_CHATBOT_API_URL ||
+  "https://04v1gt1t9a.execute-api.us-east-1.amazonaws.com/Prod/chatbot";
 
 type Message = {
   from: "user" | "bot";
@@ -17,8 +20,9 @@ const Chatbot = () => {
   const [loading, setLoading] = useState(false);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMsg = input;
+    const userMsg = input.trim();
+    if (!userMsg) return;
+
     setMessages((prev) => [...prev, { from: "user", text: userMsg }]);
     setInput("");
     setLoading(true);
@@ -26,22 +30,30 @@ const Chatbot = () => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
-      
-      console.log("Token enviado:", token?.substring(0, 20) + "..."); // debug
+
+      if (!token) {
+        throw new Error("Usuário sem token de autenticação.");
+      }
 
       const res = await fetch(API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ message: userMsg }),
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Erro ao consultar a IA.");
+      }
+
       setMessages((prev) => [...prev, { from: "bot", text: data.message }]);
-    } catch {
-      setMessages((prev) => [...prev, { from: "bot", text: "Erro ao conectar." }]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao conectar.";
+      setMessages((prev) => [...prev, { from: "bot", text: errorMessage }]);
     } finally {
       setLoading(false);
     }
@@ -50,33 +62,56 @@ const Chatbot = () => {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {open ? (
-        <div className="w-80 bg-white border rounded-xl shadow-xl flex flex-col overflow-hidden">
-          <div className="bg-primary text-white px-4 py-3 flex justify-between items-center">
+        <div className="flex w-80 flex-col overflow-hidden rounded-lg border bg-white shadow-xl">
+          <div className="flex items-center justify-between bg-primary px-4 py-3 text-white">
             <span className="font-semibold">Assistente SIFU</span>
-            <button onClick={() => setOpen(false)} className="text-white text-lg">✕</button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpen(false)}
+              className="h-8 w-8 text-white hover:bg-primary/80"
+              aria-label="Fechar chat"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex-1 p-3 space-y-2 h-64 overflow-y-auto">
-            {messages.map((msg, i) => (
-              <div key={i} className={`text-sm px-3 py-2 rounded-lg max-w-[85%] ${msg.from === "user" ? "bg-primary text-white ml-auto" : "bg-gray-100 text-gray-800"}`}>
+
+          <div className="h-64 flex-1 space-y-2 overflow-y-auto p-3">
+            {messages.map((msg, index) => (
+              <div
+                key={`${msg.from}-${index}`}
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  msg.from === "user" ? "ml-auto bg-primary text-white" : "bg-gray-100 text-gray-800"
+                }`}
+              >
                 {msg.text}
               </div>
             ))}
             {loading && <div className="text-sm text-gray-400">Digitando...</div>}
           </div>
-          <div className="p-2 border-t flex gap-2">
+
+          <div className="flex gap-2 border-t p-2">
             <Input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && sendMessage()}
               placeholder="Digite uma mensagem..."
               className="text-sm"
             />
-            <Button size="sm" onClick={sendMessage}>Enviar</Button>
+            <Button size="sm" onClick={sendMessage} disabled={loading}>
+              Enviar
+            </Button>
           </div>
         </div>
       ) : (
-        <Button onClick={() => setOpen(true)} className="rounded-full w-14 h-14 text-2xl shadow-lg">
-          💬
+        <Button
+          onClick={() => setOpen(true)}
+          size="icon"
+          className="h-14 w-14 rounded-full shadow-lg"
+          aria-label="Abrir chat"
+        >
+          <MessageCircle className="h-6 w-6" />
         </Button>
       )}
     </div>
