@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 
 const API_URL =
   import.meta.env.VITE_CHATBOT_API_URL ||
-  "https://04v1gt1t9a.execute-api.us-east-1.amazonaws.com/Prod/chatbot";
+  "https://api.alanalmeida.sifu5.web.ufersa.dev.br/chatbot";
 
 type Message = {
   from: "user" | "bot";
