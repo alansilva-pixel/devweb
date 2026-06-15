@@ -60,8 +60,11 @@ function normalizeContext(context) {
 function formatUserContext(context, fallbackName) {
   const normalized = normalizeContext(context);
   const userName = String(normalized.user.nome || fallbackName || 'usuario');
-  const userEmail = String(normalized.user.email || 'email nao informado');
   const userRegistration = String(normalized.user.matricula || 'matricula nao informada');
+  const userEmail = String(normalized.user.email || '');
+  const userIdentity = userEmail
+    ? `${userName} (${userEmail}), matricula: ${userRegistration}`
+    : `${userName}, autenticado pelo Google. Identificador do usuario: ${userRegistration}`;
   const latestStatus = String(normalized.submissionSummary.latestStatus || 'Nao enviado');
   const totalSubmissions = Number(normalized.submissionSummary.totalSubmissions || 0);
   const lastSubmission = normalized.submissionSummary.lastSubmission;
@@ -74,7 +77,7 @@ function formatUserContext(context, fallbackName) {
     name: userName,
     lines: [
       `Fonte da interacao: ${normalized.interactionSource}.`,
-      `Usuario logado: ${userName} (${userEmail}), matricula: ${userRegistration}.`,
+      `Usuario logado: ${userIdentity}.`,
       `Status mais recente do pre-projeto nesta sessao: ${latestStatus}.`,
       `Total de submissoes registradas no front-end nesta sessao: ${totalSubmissions}.`,
       `Ultimo arquivo conhecido: ${lastFile}.`,
