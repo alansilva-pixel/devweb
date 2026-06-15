@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 export interface Submission {
   id: string;
@@ -15,6 +15,7 @@ interface SubmissionContextType {
 }
 
 const SubmissionContext = createContext<SubmissionContextType | null>(null);
+const STORAGE_KEY = "sifu-submissions";
 
 export const useSubmissions = () => {
   const ctx = useContext(SubmissionContext);
@@ -23,7 +24,18 @@ export const useSubmissions = () => {
 };
 
 export const SubmissionProvider = ({ children }: { children: ReactNode }) => {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as Submission[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
+  }, [submissions]);
 
   const addSubmission = (sub: Omit<Submission, "id" | "date" | "status">) => {
     const newSub: Submission = {

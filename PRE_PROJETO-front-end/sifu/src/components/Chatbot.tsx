@@ -15,6 +15,8 @@ type Message = {
   text: string;
 };
 
+const textFromClaim = (claim: unknown) => (typeof claim === "string" ? claim : "");
+
 const Chatbot = () => {
   const { user } = useAuth();
   const { submissions, latestStatus } = useSubmissions();
@@ -34,6 +36,14 @@ const Chatbot = () => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
+      const tokenPayload = session.tokens?.idToken?.payload || {};
+      const emailFromToken = textFromClaim(tokenPayload.email);
+      const nameFromToken = textFromClaim(tokenPayload.name) || emailFromToken || "Usuario";
+      const userContext = {
+        nome: user?.nome && user.nome !== "Usuario" ? user.nome : nameFromToken,
+        matricula: user?.matricula || emailFromToken || textFromClaim(tokenPayload["cognito:username"]),
+        email: user?.email || emailFromToken,
+      };
 
       if (!token) {
         throw new Error("Usuário sem token de autenticação.");
@@ -49,7 +59,7 @@ const Chatbot = () => {
           message: userMsg,
           context: {
             interactionSource: "chatbot-web",
-            user,
+            user: userContext,
             submissionSummary: {
               latestStatus: latestStatus(),
               totalSubmissions: submissions.length,
