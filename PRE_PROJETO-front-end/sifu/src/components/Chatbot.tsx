@@ -3,6 +3,8 @@ import { fetchAuthSession } from "aws-amplify/auth";
 import { MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubmissions } from "@/contexts/SubmissionContext";
 
 const API_URL =
   import.meta.env.VITE_CHATBOT_API_URL ||
@@ -14,6 +16,8 @@ type Message = {
 };
 
 const Chatbot = () => {
+  const { user } = useAuth();
+  const { submissions, latestStatus } = useSubmissions();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -41,7 +45,18 @@ const Chatbot = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ message: userMsg }),
+        body: JSON.stringify({
+          message: userMsg,
+          context: {
+            interactionSource: "chatbot-web",
+            user,
+            submissionSummary: {
+              latestStatus: latestStatus(),
+              totalSubmissions: submissions.length,
+              lastSubmission: submissions[0] || null,
+            },
+          },
+        }),
       });
 
       const data = await res.json();

@@ -4,5 +4,5 @@
   "headers": {
     "Content-Type": "application/json"
   },
-  "body": "{\"chat\":\"SEU_NOME\"}"
+  "body": "{\"message\":\"O que voce sabe sobre minha submissao de TCC?\",\"context\":{\"interactionSource\":\"sam-local\",\"user\":{\"nome\":\"Aluno Teste\",\"matricula\":\"2026000000\",\"email\":\"aluno.teste@alunos.ufersa.edu.br\"},\"submissionSummary\":{\"latestStatus\":\"Em analise\",\"totalSubmissions\":1,\"lastSubmission\":{\"fileName\":\"pre-projeto.pdf\",\"status\":\"Em analise\"}}}}"
 }
