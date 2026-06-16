@@ -44,6 +44,7 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const pageUrl = useMemo(() => window.location.href, []);
+  const currentPhotoUrl = previewUrl || user?.fotoUrl || "";
 
   const handlePhotoChange = (file?: File) => {
     if (!file) return;
@@ -117,8 +118,8 @@ const Profile = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-muted">
-              {previewUrl ? (
-                <img src={previewUrl} alt="Foto de perfil selecionada" className="h-full w-full object-cover" />
+              {currentPhotoUrl ? (
+                <img src={currentPhotoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
               ) : (
                 <Camera className="h-12 w-12 text-muted-foreground" />
               )}

@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { signInWithRedirect, signOut } from "aws-amplify/auth";
+import { fetchAuthSession, signInWithRedirect, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
-import { fetchAuthSession } from "aws-amplify/auth";  
 
 type User = {
   nome: string;
   matricula: string;
   email: string;
+  fotoUrl?: string;
 };
 
 type AuthContextType = {
@@ -18,37 +18,44 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function claimToString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   const loadUser = async () => {
-  try {
-    const session = await fetchAuthSession();
-    const idToken = session.tokens?.idToken;
-    
-    if (!idToken) {
-      setUser(null);
-      return;
-    }
+    try {
+      const session = await fetchAuthSession();
+      const idToken = session.tokens?.idToken;
 
-    // Decodifica o JWT sem chamada extra ao Cognito
-    const payload = idToken.payload;
-    setUser({
-      nome: String(payload["name"] || payload["email"] || "Usuário"),
-      matricula: String(payload["email"] || ""),
-      email: String(payload["email"] || ""),
-    });
-  } catch {
-    setUser(null);
-  }
-};
+      if (!idToken) {
+        setUser(null);
+        return;
+      }
+
+      const payload = idToken.payload;
+      const email = claimToString(payload.email);
+      const nome = claimToString(payload.name) || claimToString(payload.given_name) || email || "Usuario";
+      const fotoUrl = claimToString(payload.picture) || claimToString(payload.profile);
+
+      setUser({
+        nome,
+        matricula: email,
+        email,
+        fotoUrl: fotoUrl || undefined,
+      });
+    } catch {
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
-      console.log("Hub event:", payload.event);
       switch (payload.event) {
         case "signInWithRedirect":
-        case "signedIn":          // ← adicione essa linha
+        case "signedIn":
           loadUser();
           break;
         case "signInWithRedirect_failure":
@@ -65,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const hasCode = urlParams.has("code");
 
     if (!hasCode) {
-      loadUser();
+      window.setTimeout(() => {
+        void loadUser();
+      }, 0);
     }
 
     return unsubscribe;
@@ -75,12 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut();
     } catch {
-      // ignora erro
+      // Ignora erro ao limpar uma sessao anterior.
     }
     await signInWithRedirect({ provider: "Google" });
   };
 
-  const loginWithCredentials = (matricula: string, _senha?: string) => {
+  const loginWithCredentials = (matricula: string) => {
     setUser({
       nome: "Aluno Teste",
       matricula,
