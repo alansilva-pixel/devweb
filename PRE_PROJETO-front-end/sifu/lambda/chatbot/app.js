@@ -186,7 +186,7 @@ function fallbackAnswer(prompt, userContext) {
   }
 
   if (normalized.includes('prazo') || normalized.includes('data')) {
-    return 'Ainda nao tenho um calendario de edital cadastrado. Para prazos oficiais, confira o edital/coordenação. Posso ajudar a entender o fluxo de envio e acompanhamento no SIFU.';
+    return 'Ainda nao tenho um calendario de edital cadastrado. Para prazos oficiais, confira o edital/coordenacao. Posso ajudar a entender o fluxo de envio e acompanhamento no SIFU.';
   }
 
   if (hasAny(normalized, ['como enviar', 'enviar', 'submeter', 'submissao', 'mandar'])) {
