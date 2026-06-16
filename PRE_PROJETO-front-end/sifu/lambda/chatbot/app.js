@@ -107,39 +107,97 @@ function selectKnowledge(prompt) {
   return knowledgeBase.slice(0, 4);
 }
 
+function hasAny(text, terms) {
+  return terms.some((term) => text.includes(term));
+}
+
+function shouldUsePdf(prompt) {
+  const normalized = normalizeText(prompt);
+  return hasAny(normalized, [
+    'pdf',
+    'arquivo',
+    'documento',
+    'pre projeto',
+    'pre-projeto',
+    'tcc',
+    'resum',
+    'analise',
+    'analisar',
+    'tema',
+    'objetivo',
+    'metodologia',
+  ]);
+}
+
+function clip(text, maxLength = 1200) {
+  const value = String(text || '').trim();
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength).trim()}...`;
+}
+
 function fallbackAnswer(prompt, userContext) {
   const normalized = normalizeText(prompt);
-  const knowledge = selectKnowledge(prompt).join(' ');
-  const contextSummary = userContext.lines.join(' ');
-  const pdfContext = userContext.pdf
-    ? ` Pre-projeto processado: ${userContext.pdf.summary || userContext.pdf.extractedText || ''}`
-    : '';
+  const pdf = userContext.pdf;
+
+  if (hasAny(normalized, ['oi', 'ola', 'bom dia', 'boa tarde', 'boa noite'])) {
+    return `Ola, ${userContext.name}! Sou o Assistente SIFU. Posso ajudar com envio, status, regras do PDF e resumo do seu pre-projeto.`;
+  }
+
+  if (
+    hasAny(normalized, ['quem esta falando', 'quem ta falando', 'quem fala', 'quem sou eu', 'minha conta']) ||
+    (normalized.includes('quem') && normalized.includes('voce') && normalized.includes('falando'))
+  ) {
+    return `Voce esta logado como ${userContext.name}. Se essa nao for a conta correta, saia e entre novamente escolhendo a conta desejada no Google.`;
+  }
+
+  if (hasAny(normalized, ['quem e voce', 'quem eh voce', 'o que voce e', 'sua funcao'])) {
+    return 'Eu sou o Assistente SIFU, criado para ajudar com o envio e acompanhamento do pre-projeto de TCC.';
+  }
+
+  if (hasAny(normalized, ['status', 'situacao', 'andamento'])) {
+    const statusLine =
+      userContext.lines.find((line) => normalizeText(line).includes('status mais recente')) ||
+      'Status mais recente do pre-projeto: Nao enviado.';
+    return `${statusLine} Para atualizar o status, confira tambem a tela "Minhas Submissoes".`;
+  }
 
   if (normalized.includes('resum') && normalized.includes('projeto')) {
-    if (!userContext.pdf) {
+    if (!pdf) {
       return `Ola, ${userContext.name}! Ainda nao encontrei um PDF de pre-projeto processado para resumir. Envie o PDF e aguarde o processamento terminar.`;
     }
 
-    if (userContext.pdf.processingStatus !== 'ready' && userContext.pdf.processingStatus !== 'empty_text') {
-      return `Ola, ${userContext.name}! Seu pre-projeto foi encontrado, mas o processamento ainda esta em andamento. Status atual: ${userContext.pdf.processingStatus}. Tente novamente em instantes.`;
+    if (pdf.processingStatus !== 'ready' && pdf.processingStatus !== 'empty_text') {
+      return `Encontrei seu envio, mas o PDF ainda esta em processamento. Status atual: ${pdf.processingStatus}. Tente novamente em instantes.`;
     }
 
-    return `Ola, ${userContext.name}! Aqui esta o resumo do pre-projeto "${userContext.pdf.fileName}": ${userContext.pdf.summary || userContext.pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.'}`;
+    return `Resumo do arquivo "${pdf.fileName}": ${clip(pdf.summary || pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.')}`;
+  }
+
+  if (shouldUsePdf(prompt)) {
+    if (!pdf) {
+      return 'Ainda nao encontrei um PDF processado para essa conta. Envie o pre-projeto em PDF e aguarde o processamento.';
+    }
+
+    if (pdf.processingStatus !== 'ready' && pdf.processingStatus !== 'empty_text') {
+      return `O PDF foi encontrado, mas ainda nao esta pronto para consulta. Status atual: ${pdf.processingStatus}.`;
+    }
+
+    return `Sobre o arquivo "${pdf.fileName}": ${clip(pdf.summary || pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.')}`;
   }
 
   if (normalized.includes('prazo') || normalized.includes('data')) {
-    return `Ola, ${userContext.name}! Ainda nao tenho um calendario de edital cadastrado. Com base no contexto da sua interacao: ${contextSummary} Posso orientar o fluxo do SIFU e voce pode informar qual etapa ou edital quer conferir.`;
+    return 'Ainda nao tenho um calendario de edital cadastrado. Para prazos oficiais, confira o edital/coordenação. Posso ajudar a entender o fluxo de envio e acompanhamento no SIFU.';
   }
 
-  if (normalized.includes('tcc') || normalized.includes('projeto')) {
-    return `Ola, ${userContext.name}! Pelo que recebi desta sessao: ${contextSummary}${pdfContext} Pela base previamente disponibilizada: ${knowledge}`;
+  if (hasAny(normalized, ['como enviar', 'enviar', 'submeter', 'submissao', 'mandar'])) {
+    return 'Para enviar o pre-projeto, acesse "Enviar Pre-Projeto", preencha os dados do orientador, selecione um unico PDF assinado de ate 10MB e confirme o envio.';
   }
 
-  if (normalized.includes('contexto') || normalized.includes('sabe sobre mim') || normalized.includes('interacao')) {
-    return `Ola, ${userContext.name}! Estou respondendo com base nestas informacoes da interacao: ${contextSummary} Tambem uso a base do SIFU/laboratorio: ${knowledge}`;
+  if (hasAny(normalized, ['tamanho', 'limite', 'quantos mb', '10mb'])) {
+    return 'O PDF do pre-projeto deve ter no maximo 10MB e deve reunir os documentos assinados em um unico arquivo.';
   }
 
-  return `Ola, ${userContext.name}! Recebi sua mensagem: "${prompt}". Contexto usado: ${contextSummary}${pdfContext} Conhecimento previo usado: ${knowledge}`;
+  return 'Posso ajudar com envio de pre-projeto, status da submissao, regras do PDF e resumo do arquivo enviado. Reformule sua pergunta dizendo qual dessas partes voce quer consultar.';
 }
 
 function normalizeText(text) {
@@ -182,16 +240,16 @@ async function getLatestProcessedSubmission(userId) {
 async function askAi(prompt, name, context, pdf) {
   const modelId = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0';
   const userContext = formatUserContext(context, name);
-  userContext.pdf = pdf;
+  userContext.pdf = shouldUsePdf(prompt) ? pdf : null;
   const selectedKnowledge = selectKnowledge(prompt);
-  const pdfLines = pdf
+  const pdfLines = userContext.pdf
     ? [
-        `PDF mais recente: ${pdf.fileName}.`,
-        `Status do processamento do PDF: ${pdf.processingStatus}.`,
-        `Resumo salvo do PDF: ${pdf.summary || 'sem resumo salvo'}.`,
-        `Trecho do texto extraido: ${(pdf.extractedText || '').slice(0, 12000) || 'sem texto extraido'}.`,
+        `PDF mais recente: ${userContext.pdf.fileName}.`,
+        `Status do processamento do PDF: ${userContext.pdf.processingStatus}.`,
+        `Resumo salvo do PDF: ${userContext.pdf.summary || 'sem resumo salvo'}.`,
+        `Trecho do texto extraido: ${(userContext.pdf.extractedText || '').slice(0, 12000) || 'sem texto extraido'}.`,
       ].join('\n')
-    : 'Nenhum PDF de pre-projeto processado encontrado para este usuario.';
+    : 'PDF omitido porque a pergunta nao exige consulta ao arquivo.';
   const body = {
     messages: [
       {
@@ -203,7 +261,8 @@ async function askAi(prompt, name, context, pdf) {
               'Responda em portugues, de forma curta e util.',
               'Mostre quando estiver usando informacoes da interacao com o usuario.',
               'Mostre quando estiver usando conhecimento previamente disponibilizado ao agente.',
-              'Quando o usuario pedir resumo, analise ou explicacao do pre-projeto, use o PDF processado abaixo.',
+              'Use o PDF somente quando a pergunta for sobre resumo, analise, tema, objetivo, metodologia, documento, arquivo ou pre-projeto.',
+              'Para perguntas simples sobre identidade, status ou uso do sistema, responda diretamente sem repetir todo o contexto.',
               'Nao invente dados que nao estejam no contexto ou na base.',
               `Contexto da interacao: ${userContext.lines.join(' ')}`,
               `Conhecimento previo do SIFU/laboratorio: ${selectedKnowledge.join(' ')}`,
@@ -280,7 +339,7 @@ exports.handler = async (event) => {
       });
     }
 
-    const latestPdf = await getLatestProcessedSubmission(userId);
+    const latestPdf = shouldUsePdf(prompt) ? await getLatestProcessedSubmission(userId) : null;
     const answer = await askAi(prompt, name, context, latestPdf);
 
     await saveChat({
