@@ -85,9 +85,9 @@ const Chatbot = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
       {open ? (
-        <div className="flex w-80 flex-col overflow-hidden rounded-lg border bg-white shadow-xl">
+        <div className="flex max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-lg border bg-white shadow-xl sm:max-h-[calc(100vh-3rem)]">
           <div className="flex items-center justify-between bg-primary px-4 py-3 text-white">
             <span className="font-semibold">Assistente SIFU</span>
             <Button
@@ -102,11 +102,11 @@ const Chatbot = () => {
             </Button>
           </div>
 
-          <div className="h-64 flex-1 space-y-2 overflow-y-auto p-3">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden p-3 sm:max-h-[60vh]">
             {messages.map((msg, index) => (
               <div
                 key={`${msg.from}-${index}`}
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                className={`max-w-[85%] overflow-hidden rounded-lg px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap ${
                   msg.from === "user" ? "ml-auto bg-primary text-white" : "bg-gray-100 text-gray-800"
                 }`}
               >
@@ -116,13 +116,13 @@ const Chatbot = () => {
             {loading && <div className="text-sm text-gray-400">Digitando...</div>}
           </div>
 
-          <div className="flex gap-2 border-t p-2">
+          <div className="flex min-w-0 gap-2 border-t p-2">
             <Input
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && sendMessage()}
               placeholder="Digite uma mensagem..."
-              className="text-sm"
+              className="min-w-0 text-sm"
             />
             <Button size="sm" onClick={sendMessage} disabled={loading}>
               Enviar
