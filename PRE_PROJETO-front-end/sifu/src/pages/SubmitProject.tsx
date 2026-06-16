@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubmissions } from "@/contexts/SubmissionContext";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle, Upload } from "lucide-react";
+
+const SUBMISSIONS_API_URL =
+  import.meta.env.VITE_SUBMISSIONS_API_URL ||
+  "https://fecslb5103.execute-api.us-east-1.amazonaws.com/Prod/submissions";
 
 const SubmitProject = () => {
   const { user } = useAuth();
@@ -19,22 +24,94 @@ const SubmitProject = () => {
   const [coorientador, setCoorientador] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !confirmed) return;
+    if (!file || !confirmed || isSubmitting) return;
 
-    const sub = addSubmission({
-      nome: user?.nome || "",
-      fileName: file.name,
-    });
+    setError("");
+    setIsSubmitting(true);
 
-    navigate("/confirmacao", { state: sub });
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+
+      if (!token) {
+        throw new Error("Usuario sem token de autenticacao.");
+      }
+
+      const createResponse = await fetch(SUBMISSIONS_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type || "application/pdf",
+          fileSize: file.size,
+          orientador,
+          emailOrientador,
+          coorientador,
+        }),
+      });
+
+      const createData = await createResponse.json();
+
+      if (!createResponse.ok) {
+        throw new Error(createData.message || "Nao foi possivel iniciar o envio.");
+      }
+
+      const uploadResponse = await fetch(createData.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/pdf",
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Nao foi possivel enviar o PDF para o S3.");
+      }
+
+      const completeResponse = await fetch(`${SUBMISSIONS_API_URL}/${createData.submissionId}/complete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          createdAt: createData.createdAt,
+        }),
+      });
+
+      const completeData = await completeResponse.json();
+
+      if (!completeResponse.ok) {
+        throw new Error(completeData.message || "Nao foi possivel enfileirar o processamento do PDF.");
+      }
+
+      const sub = addSubmission({
+        nome: user?.nome || "",
+        fileName: file.name,
+        backendSubmissionId: createData.submissionId,
+        createdAt: createData.createdAt,
+        processingStatus: completeData.processingStatus,
+      });
+
+      navigate("/confirmacao", { state: sub });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Nao foi possivel enviar o pre-projeto.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-primary">Enviar Pré-Projeto de TCC</h1>
+      <h1 className="text-2xl font-bold text-primary">Enviar Pre-Projeto de TCC</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="shadow-sm">
@@ -48,7 +125,7 @@ const SubmitProject = () => {
                 <Input value={user?.nome || ""} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label>Matrícula</Label>
+                <Label>Matricula</Label>
                 <Input value={user?.matricula || ""} readOnly className="bg-muted" />
               </div>
             </div>
@@ -81,24 +158,31 @@ const SubmitProject = () => {
           </CardContent>
         </Card>
 
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
-          <AlertCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <p className="text-sm text-primary">
-            Envie um único arquivo PDF contendo todos os documentos assinados. Tamanho máximo: 10MB.
+            Envie um unico arquivo PDF contendo todos os documentos assinados. Tamanho maximo: 10MB. A IA processara o
+            arquivo em segundo plano para responder perguntas e resumir o pre-projeto.
           </p>
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <Card className="shadow-sm">
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
               <Label>Arquivo PDF</Label>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 px-4 py-2 border border-input rounded-md cursor-pointer hover:bg-muted transition-colors text-sm">
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-4 py-2 text-sm transition-colors hover:bg-muted">
                   <Upload className="h-4 w-4" />
                   Selecionar arquivo
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept=".pdf,application/pdf"
                     className="hidden"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                   />
@@ -114,14 +198,14 @@ const SubmitProject = () => {
                 onCheckedChange={(v) => setConfirmed(v === true)}
               />
               <label htmlFor="confirm" className="text-sm">
-                Confirmo que todas as informações estão corretas e o documento está assinado.
+                Confirmo que todas as informacoes estao corretas e o documento esta assinado.
               </label>
             </div>
           </CardContent>
         </Card>
 
-        <Button type="submit" variant="action" size="lg" disabled={!file || !confirmed} className="gap-2">
-          Enviar Pré-Projeto
+        <Button type="submit" variant="action" size="lg" disabled={!file || !confirmed || isSubmitting} className="gap-2">
+          {isSubmitting ? "Enviando e preparando IA..." : "Enviar Pre-Projeto"}
         </Button>
       </form>
     </div>

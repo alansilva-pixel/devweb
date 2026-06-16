@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Send } from "lucide-react";
 
 const statusColors: Record<string, string> = {
-  "Não enviado": "bg-muted text-muted-foreground",
-  "Em análise": "bg-yellow-100 text-yellow-800",
-  "Aprovado": "bg-green-100 text-green-800",
+  "Nao enviado": "bg-muted text-muted-foreground",
+  "Em analise": "bg-yellow-100 text-yellow-800",
+  Aprovado: "bg-green-100 text-green-800",
 };
 
 const Dashboard = () => {
@@ -27,7 +27,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Situação atual:</span>
+            <span className="text-sm text-muted-foreground">Situacao atual:</span>
             <Badge className={statusColors[status] || "bg-muted"}>{status}</Badge>
           </div>
         </CardContent>
@@ -35,7 +35,7 @@ const Dashboard = () => {
 
       <Button variant="action" size="lg" onClick={() => navigate("/enviar")} className="gap-2">
         <Send className="h-4 w-4" />
-        Enviar Pré-Projeto de TCC
+        Enviar Pre-Projeto de TCC
       </Button>
     </div>
   );

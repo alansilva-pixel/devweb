@@ -4,8 +4,11 @@ export interface Submission {
   id: string;
   nome: string;
   date: string;
-  status: "Não enviado" | "Em análise" | "Aprovado";
+  status: "Nao enviado" | "Em analise" | "Aprovado";
   fileName: string;
+  backendSubmissionId?: string;
+  createdAt?: string;
+  processingStatus?: string;
 }
 
 interface SubmissionContextType {
@@ -42,14 +45,14 @@ export const SubmissionProvider = ({ children }: { children: ReactNode }) => {
       ...sub,
       id: crypto.randomUUID(),
       date: new Date().toLocaleDateString("pt-BR"),
-      status: "Em análise",
+      status: "Em analise",
     };
     setSubmissions((prev) => [newSub, ...prev]);
     return newSub;
   };
 
   const latestStatus = () => {
-    if (submissions.length === 0) return "Não enviado";
+    if (submissions.length === 0) return "Nao enviado";
     return submissions[0].status;
   };
 

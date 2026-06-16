@@ -122,6 +122,48 @@ Resources:
         - AttributeName: createdAt
           KeyType: RANGE
 
+  SifuSubmissionBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub sifu-${StudentName}-submissions-2026-1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+              - GET
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+
+  SifuSubmissionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub sifu-${StudentName}-submissions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+
+  SifuPdfProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sifu-${StudentName}-pdf-processing
+      VisibilityTimeout: 180
+
   SifuChatbotFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -132,6 +174,7 @@ Resources:
       Environment:
         Variables:
           CHAT_MESSAGES_TABLE: !Ref SifuChatMessagesTable
+          SUBMISSIONS_TABLE: !Ref SifuSubmissionsTable
           BEDROCK_MODEL_ID: !Ref BedrockModelId
       Events:
         ChatbotPost:
@@ -140,6 +183,52 @@ Resources:
             RestApiId: !Ref SifuChatbotApi
             Path: /chatbot
             Method: post
+
+  SifuSubmissionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sifu-submissions
+      CodeUri: lambda/submissions/
+      Handler: app.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables:
+          SUBMISSION_BUCKET: !Ref SifuSubmissionBucket
+          SUBMISSIONS_TABLE: !Ref SifuSubmissionsTable
+          PDF_PROCESSING_QUEUE_URL: !Ref SifuPdfProcessingQueue
+      Events:
+        SubmissionCreate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SifuChatbotApi
+            Path: /submissions
+            Method: post
+        SubmissionComplete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SifuChatbotApi
+            Path: /submissions/{submissionId}/complete
+            Method: post
+
+  SifuPdfProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: sifu-pdf-processor
+      CodeUri: lambda/pdf-processor/
+      Handler: app.handler
+      Timeout: 120
+      MemorySize: 1024
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables:
+          SUBMISSIONS_TABLE: !Ref SifuSubmissionsTable
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Events:
+        PdfProcessingQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SifuPdfProcessingQueue.Arn
+            BatchSize: 1
 
   SifuProfileFunction:
     Type: AWS::Serverless::Function
@@ -191,3 +280,15 @@ Outputs:
   ProfileTableName:
     Description: Nome da tabela DynamoDB de perfis.
     Value: !Ref SifuProfileTable
+  SubmissionsApiUrl:
+    Description: URL base das rotas de submissao de pre-projeto.
+    Value: !Sub https://${SifuChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/submissions
+  SubmissionBucketName:
+    Description: Nome do bucket S3 de PDFs de pre-projeto.
+    Value: !Ref SifuSubmissionBucket
+  SubmissionsTableName:
+    Description: Nome da tabela DynamoDB de submissoes.
+    Value: !Ref SifuSubmissionsTable
+  PdfProcessingQueueUrl:
+    Description: URL da fila SQS de processamento dos PDFs.
+    Value: !Ref SifuPdfProcessingQueue

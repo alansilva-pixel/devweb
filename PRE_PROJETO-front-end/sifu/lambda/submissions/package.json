@@ -1,0 +1,11 @@
+{
+  "name": "sifu-submissions-lambda",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.830.0",
+    "@aws-sdk/client-s3": "^3.830.0",
+    "@aws-sdk/client-sqs": "^3.830.0",
+    "@aws-sdk/s3-request-presigner": "^3.830.0"
+  }
+}

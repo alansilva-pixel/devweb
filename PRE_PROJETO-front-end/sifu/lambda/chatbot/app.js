@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, PutItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
 const dynamodb = new DynamoDBClient({});
@@ -111,26 +111,80 @@ function fallbackAnswer(prompt, userContext) {
   const normalized = prompt.toLowerCase();
   const knowledge = selectKnowledge(prompt).join(' ');
   const contextSummary = userContext.lines.join(' ');
+  const pdfContext = userContext.pdf
+    ? ` Pre-projeto processado: ${userContext.pdf.summary || userContext.pdf.extractedText || ''}`
+    : '';
+
+  if (normalized.includes('resum') && normalized.includes('projeto')) {
+    if (!userContext.pdf) {
+      return `Ola, ${userContext.name}! Ainda nao encontrei um PDF de pre-projeto processado para resumir. Envie o PDF e aguarde o processamento terminar.`;
+    }
+
+    if (userContext.pdf.processingStatus !== 'ready' && userContext.pdf.processingStatus !== 'empty_text') {
+      return `Ola, ${userContext.name}! Seu pre-projeto foi encontrado, mas o processamento ainda esta em andamento. Status atual: ${userContext.pdf.processingStatus}. Tente novamente em instantes.`;
+    }
+
+    return `Ola, ${userContext.name}! Aqui esta o resumo do pre-projeto "${userContext.pdf.fileName}": ${userContext.pdf.summary || userContext.pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.'}`;
+  }
 
   if (normalized.includes('prazo') || normalized.includes('data')) {
     return `Ola, ${userContext.name}! Ainda nao tenho um calendario de edital cadastrado. Com base no contexto da sua interacao: ${contextSummary} Posso orientar o fluxo do SIFU e voce pode informar qual etapa ou edital quer conferir.`;
   }
 
   if (normalized.includes('tcc') || normalized.includes('projeto')) {
-    return `Ola, ${userContext.name}! Pelo que recebi desta sessao: ${contextSummary} Pela base previamente disponibilizada: ${knowledge}`;
+    return `Ola, ${userContext.name}! Pelo que recebi desta sessao: ${contextSummary}${pdfContext} Pela base previamente disponibilizada: ${knowledge}`;
   }
 
   if (normalized.includes('contexto') || normalized.includes('sabe sobre mim') || normalized.includes('interacao')) {
     return `Ola, ${userContext.name}! Estou respondendo com base nestas informacoes da interacao: ${contextSummary} Tambem uso a base do SIFU/laboratorio: ${knowledge}`;
   }
 
-  return `Ola, ${userContext.name}! Recebi sua mensagem: "${prompt}". Contexto usado: ${contextSummary} Conhecimento previo usado: ${knowledge}`;
+  return `Ola, ${userContext.name}! Recebi sua mensagem: "${prompt}". Contexto usado: ${contextSummary}${pdfContext} Conhecimento previo usado: ${knowledge}`;
 }
 
-async function askAi(prompt, name, context) {
+async function getLatestProcessedSubmission(userId) {
+  const tableName = process.env.SUBMISSIONS_TABLE;
+  if (!tableName || !userId) return null;
+
+  const result = await dynamodb.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: {
+        ':userId': { S: userId },
+      },
+      ScanIndexForward: false,
+      Limit: 5,
+    }),
+  );
+
+  const item = (result.Items || []).find((candidate) => candidate.processingStatus?.S);
+  if (!item) return null;
+
+  return {
+    submissionId: item.submissionId?.S || '',
+    fileName: item.fileName?.S || 'pre-projeto.pdf',
+    createdAt: item.createdAt?.S || '',
+    processingStatus: item.processingStatus?.S || 'desconhecido',
+    summary: item.pdfSummary?.S || '',
+    extractedText: item.extractedText?.S || '',
+    pageCount: Number(item.pageCount?.N || 0),
+  };
+}
+
+async function askAi(prompt, name, context, pdf) {
   const modelId = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0';
   const userContext = formatUserContext(context, name);
+  userContext.pdf = pdf;
   const selectedKnowledge = selectKnowledge(prompt);
+  const pdfLines = pdf
+    ? [
+        `PDF mais recente: ${pdf.fileName}.`,
+        `Status do processamento do PDF: ${pdf.processingStatus}.`,
+        `Resumo salvo do PDF: ${pdf.summary || 'sem resumo salvo'}.`,
+        `Trecho do texto extraido: ${(pdf.extractedText || '').slice(0, 12000) || 'sem texto extraido'}.`,
+      ].join('\n')
+    : 'Nenhum PDF de pre-projeto processado encontrado para este usuario.';
   const body = {
     messages: [
       {
@@ -142,9 +196,11 @@ async function askAi(prompt, name, context) {
               'Responda em portugues, de forma curta e util.',
               'Mostre quando estiver usando informacoes da interacao com o usuario.',
               'Mostre quando estiver usando conhecimento previamente disponibilizado ao agente.',
+              'Quando o usuario pedir resumo, analise ou explicacao do pre-projeto, use o PDF processado abaixo.',
               'Nao invente dados que nao estejam no contexto ou na base.',
               `Contexto da interacao: ${userContext.lines.join(' ')}`,
               `Conhecimento previo do SIFU/laboratorio: ${selectedKnowledge.join(' ')}`,
+              `PDF processado do usuario: ${pdfLines}`,
               `Mensagem do usuario: ${prompt}`,
             ].join('\n'),
           },
@@ -179,22 +235,26 @@ async function saveChat({ userId, email, name, prompt, context, answer, aiProvid
   const tableName = process.env.CHAT_MESSAGES_TABLE;
   if (!tableName) return;
 
-  await dynamodb.send(
-    new PutItemCommand({
-      TableName: tableName,
-      Item: {
-        userId: { S: userId },
-        createdAt: { S: new Date().toISOString() },
-        messageId: { S: crypto.randomUUID() },
-        email: { S: email },
-        name: { S: name },
-        request: { S: prompt },
-        context: { S: JSON.stringify(context) },
-        response: { S: answer },
-        aiProvider: { S: aiProvider },
-      },
-    }),
-  );
+  try {
+    await dynamodb.send(
+      new PutItemCommand({
+        TableName: tableName,
+        Item: {
+          userId: { S: userId },
+          createdAt: { S: new Date().toISOString() },
+          messageId: { S: crypto.randomUUID() },
+          email: { S: email },
+          name: { S: name },
+          request: { S: prompt },
+          context: { S: JSON.stringify(context) },
+          response: { S: answer },
+          aiProvider: { S: aiProvider },
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn('Nao foi possivel salvar historico do chat.', error.name);
+  }
 }
 
 exports.handler = async (event) => {
@@ -213,7 +273,8 @@ exports.handler = async (event) => {
       });
     }
 
-    const answer = await askAi(prompt, name, context);
+    const latestPdf = await getLatestProcessedSubmission(userId);
+    const answer = await askAi(prompt, name, context, latestPdf);
 
     await saveChat({
       userId,
