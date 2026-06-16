@@ -17,9 +17,37 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const cognitoDomain = "https://us-east-180jtnciqe.auth.us-east-1.amazoncognito.com";
 
 function claimToString(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchUserInfo(accessToken?: string) {
+  if (!accessToken) return {};
+
+  try {
+    const response = await fetch(`${cognitoDomain}/oauth2/userInfo`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) return {};
+
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function getFallbackName(email: string, username: string) {
+  if (email) return email.split("@")[0];
+  return username || "Usuario";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -27,8 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUser = async () => {
     try {
-      const session = await fetchAuthSession();
-      const idToken = session.tokens?.idToken;
+      let session = await fetchAuthSession();
+      let idToken = session.tokens?.idToken;
+
+      for (let attempt = 0; !idToken && attempt < 5; attempt += 1) {
+        await wait(300);
+        session = await fetchAuthSession();
+        idToken = session.tokens?.idToken;
+      }
 
       if (!idToken) {
         setUser(null);
@@ -36,13 +70,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = idToken.payload;
-      const email = claimToString(payload.email);
-      const nome = claimToString(payload.name) || claimToString(payload.given_name) || email || "Usuario";
-      const fotoUrl = claimToString(payload.picture) || claimToString(payload.profile);
+      const userInfo = await fetchUserInfo(session.tokens?.accessToken?.toString());
+      const email = claimToString(userInfo.email) || claimToString(payload.email);
+      const username =
+        claimToString(payload["cognito:username"]) ||
+        claimToString(userInfo.username) ||
+        claimToString(payload.username) ||
+        claimToString(payload.sub);
+      const nome =
+        claimToString(userInfo.name) ||
+        claimToString(payload.name) ||
+        claimToString(userInfo.given_name) ||
+        claimToString(payload.given_name) ||
+        getFallbackName(email, username);
+      const fotoUrl =
+        claimToString(userInfo.picture) ||
+        claimToString(payload.picture) ||
+        claimToString(userInfo.profile) ||
+        claimToString(payload.profile);
 
       setUser({
         nome,
-        matricula: email,
+        matricula: email || username,
         email,
         fotoUrl: fotoUrl || undefined,
       });
@@ -68,14 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasCode = urlParams.has("code");
-
-    if (!hasCode) {
-      window.setTimeout(() => {
-        void loadUser();
-      }, 0);
-    }
+    window.setTimeout(() => {
+      void loadUser();
+    }, 0);
 
     return unsubscribe;
   }, []);

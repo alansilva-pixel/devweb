@@ -14,7 +14,7 @@ const AppNavbar = () => {
     .join("");
 
   return (
-    <header className="bg-primary flex items-center justify-between px-6 shadow-sm">
+    <header className="bg-primary flex items-center justify-between gap-3 px-4 shadow-sm sm:px-6">
       <a
         href="https://sifu.web.ufersa.dev.br/"
         target="_self"
@@ -25,7 +25,7 @@ const AppNavbar = () => {
         <img src={sifuLogo} alt="SIFU" width={64} height={64} className="rounded" />
       </a>
       {user && (
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border border-primary-foreground/40">
               <AvatarImage src={user.fotoUrl} alt={`Foto de ${user.nome}`} />
@@ -33,10 +33,10 @@ const AppNavbar = () => {
                 {initials || "U"}
               </AvatarFallback>
             </Avatar>
-            <div className="hidden min-w-0 flex-col sm:flex">
-              <span className="max-w-48 truncate text-sm font-medium text-primary-foreground">{user.nome}</span>
+            <div className="flex min-w-0 max-w-36 flex-col sm:max-w-48">
+              <span className="truncate text-sm font-medium text-primary-foreground">{user.nome}</span>
               {user.email && (
-                <span className="max-w-48 truncate text-xs text-primary-foreground/80">{user.email}</span>
+                <span className="truncate text-xs text-primary-foreground/80">{user.email}</span>
               )}
             </div>
           </div>
