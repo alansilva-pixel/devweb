@@ -22,7 +22,7 @@ const AuthGate = () => {
   if (isLoading) return null;
   if (!user) return <Login />;
   return (
-    <SubmissionProvider>
+    <SubmissionProvider key={user.id}>
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />

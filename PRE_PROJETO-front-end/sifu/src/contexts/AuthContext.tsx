@@ -3,6 +3,7 @@ import { fetchAuthSession, fetchUserAttributes, signInWithRedirect, signOut } fr
 import { Hub } from "aws-amplify/utils";
 
 type User = {
+  id: string;
   nome: string;
   matricula: string;
   email: string;
@@ -14,7 +15,7 @@ type AuthContextType = {
   isLoading: boolean;
   login: () => Promise<void>;
   loginWithCredentials: (matricula: string, senha?: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         claimToString(userInfo.username) ||
         claimToString(payload.username) ||
         claimToString(payload.sub);
+      const userId = claimToString(payload.sub) || username || email;
       const nome =
         claimToString(attributes.name) ||
         claimToString(userInfo.name) ||
@@ -137,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         claimToString(payload.profile);
 
       setUser({
+        id: userId,
         nome,
         matricula: email || username,
         email,
@@ -196,9 +199,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.warn("Login local bloqueado. Use o login com Google para gerar token Cognito.", matricula);
   };
 
-  const logout = () => {
-    signOut().catch(() => {});
+  const logout = async () => {
     setUser(null);
+    setIsLoading(true);
+    sessionStorage.removeItem(LOGIN_NONCE_KEY);
+
+    try {
+      await signOut({ global: true });
+    } catch {
+      // Mantem o usuario deslogado localmente mesmo se o Cognito falhar.
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

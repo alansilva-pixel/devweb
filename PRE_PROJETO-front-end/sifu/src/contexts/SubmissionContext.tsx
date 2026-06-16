@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Submission {
   id: string;
@@ -18,7 +19,23 @@ interface SubmissionContextType {
 }
 
 const SubmissionContext = createContext<SubmissionContextType | null>(null);
-const STORAGE_KEY = "sifu-submissions";
+const LEGACY_STORAGE_KEY = "sifu-submissions";
+const STORAGE_KEY_PREFIX = "sifu-submissions:";
+
+function getStorageKey(userId?: string) {
+  return `${STORAGE_KEY_PREFIX}${userId || "anonymous"}`;
+}
+
+function readSubmissions(storageKey: string) {
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
+    const parsed = stored ? (JSON.parse(stored) as Submission[]) : [];
+    return parsed.filter((submission) => Boolean(submission.backendSubmissionId));
+  } catch {
+    return [];
+  }
+}
 
 export const useSubmissions = () => {
   const ctx = useContext(SubmissionContext);
@@ -27,19 +44,17 @@ export const useSubmissions = () => {
 };
 
 export const SubmissionProvider = ({ children }: { children: ReactNode }) => {
-  const [submissions, setSubmissions] = useState<Submission[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      const parsed = stored ? (JSON.parse(stored) as Submission[]) : [];
-      return parsed.filter((submission) => Boolean(submission.backendSubmissionId));
-    } catch {
-      return [];
-    }
-  });
+  const { user } = useAuth();
+  const storageKey = getStorageKey(user?.id || user?.email);
+  const [submissions, setSubmissions] = useState<Submission[]>(() => readSubmissions(storageKey));
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
-  }, [submissions]);
+    setSubmissions(readSubmissions(storageKey));
+  }, [storageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(submissions));
+  }, [storageKey, submissions]);
 
   const addSubmission = (sub: Omit<Submission, "id" | "date" | "status">) => {
     const newSub: Submission = {

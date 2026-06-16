@@ -40,7 +40,7 @@ const AppNavbar = () => {
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={logout} className="text-primary-foreground hover:bg-primary/80">
+          <Button variant="ghost" size="icon" onClick={() => void logout()} className="text-primary-foreground hover:bg-primary/80">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
