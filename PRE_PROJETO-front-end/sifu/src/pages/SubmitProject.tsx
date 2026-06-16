@@ -36,7 +36,7 @@ const SubmitProject = () => {
 
     try {
       const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
+      const token = session.tokens?.accessToken?.toString();
 
       if (!token) {
         throw new Error("Usuario sem token de autenticacao.");
@@ -55,6 +55,11 @@ const SubmitProject = () => {
           orientador,
           emailOrientador,
           coorientador,
+          user: {
+            nome: user?.nome || "",
+            email: user?.email || "",
+            matricula: user?.matricula || "",
+          },
         }),
       });
 

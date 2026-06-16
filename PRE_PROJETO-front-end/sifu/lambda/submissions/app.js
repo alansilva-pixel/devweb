@@ -26,14 +26,15 @@ function getClaims(event) {
   return event.requestContext?.authorizer?.claims || {};
 }
 
-function getUser(claims) {
-  const email = String(claims.email || '');
+function getUser(claims, payload = {}) {
+  const bodyUser = payload.user && typeof payload.user === 'object' ? payload.user : {};
+  const email = String(claims.email || bodyUser.email || '');
   const userId = String(claims.sub || claims['cognito:username'] || email || 'usuario-autenticado');
 
   return {
     userId,
     email,
-    name: String(claims.name || email || 'usuario'),
+    name: String(claims.name || bodyUser.nome || email || 'usuario'),
   };
 }
 
@@ -45,8 +46,8 @@ function sanitizeFileName(fileName) {
 
 async function createSubmission(event) {
   const claims = getClaims(event);
-  const user = getUser(claims);
   const payload = event.body ? JSON.parse(event.body) : {};
+  const user = getUser(claims, payload);
   const fileName = sanitizeFileName(payload.fileName);
   const contentType = String(payload.contentType || 'application/pdf');
   const fileSize = Number(payload.fileSize || 0);
@@ -110,8 +111,8 @@ async function createSubmission(event) {
 
 async function completeSubmission(event) {
   const claims = getClaims(event);
-  const user = getUser(claims);
   const payload = event.body ? JSON.parse(event.body) : {};
+  const user = getUser(claims, payload);
   const submissionId = event.pathParameters?.submissionId;
   const createdAt = String(payload.createdAt || '');
 

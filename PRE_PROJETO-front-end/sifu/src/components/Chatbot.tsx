@@ -35,7 +35,7 @@ const Chatbot = () => {
 
     try {
       const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
+      const token = session.tokens?.accessToken?.toString();
       const tokenPayload = session.tokens?.idToken?.payload || {};
       const emailFromToken = textFromClaim(tokenPayload.email);
       const nameFromToken = textFromClaim(tokenPayload.name) || emailFromToken || "Usuario";
