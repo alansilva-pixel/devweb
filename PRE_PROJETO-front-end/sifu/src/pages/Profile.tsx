@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Camera, Save, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,14 @@ const Profile = () => {
 
   const pageUrl = useMemo(() => window.location.href, []);
   const currentPhotoUrl = previewUrl || user?.fotoUrl || "";
+
+  useEffect(() => {
+    if (!user) return;
+
+    setNome(user.nome);
+    setEmail(user.email);
+    setMatricula(user.matricula);
+  }, [user]);
 
   const handlePhotoChange = (file?: File) => {
     if (!file) return;

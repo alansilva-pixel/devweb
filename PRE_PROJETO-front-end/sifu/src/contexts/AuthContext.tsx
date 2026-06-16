@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { fetchAuthSession, signInWithRedirect, signOut } from "aws-amplify/auth";
+import { fetchAuthSession, fetchUserAttributes, signInWithRedirect, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 
 type User = {
@@ -47,7 +47,15 @@ async function fetchUserInfo(accessToken?: string) {
 
 function getFallbackName(email: string, username: string) {
   if (email) return email.split("@")[0];
-  return username || "Usuario";
+  return username.startsWith("google_") ? "Usuario Google" : username || "Usuario";
+}
+
+async function getCognitoAttributes() {
+  try {
+    return (await fetchUserAttributes()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -70,20 +78,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = idToken.payload;
+      const attributes = await getCognitoAttributes();
       const userInfo = await fetchUserInfo(session.tokens?.accessToken?.toString());
-      const email = claimToString(userInfo.email) || claimToString(payload.email);
+      const email =
+        claimToString(attributes.email) ||
+        claimToString(userInfo.email) ||
+        claimToString(payload.email);
       const username =
         claimToString(payload["cognito:username"]) ||
+        claimToString(attributes.preferred_username) ||
         claimToString(userInfo.username) ||
         claimToString(payload.username) ||
         claimToString(payload.sub);
       const nome =
+        claimToString(attributes.name) ||
         claimToString(userInfo.name) ||
         claimToString(payload.name) ||
+        claimToString(attributes.given_name) ||
         claimToString(userInfo.given_name) ||
         claimToString(payload.given_name) ||
         getFallbackName(email, username);
       const fotoUrl =
+        claimToString(attributes.picture) ||
         claimToString(userInfo.picture) ||
         claimToString(payload.picture) ||
         claimToString(userInfo.profile) ||
