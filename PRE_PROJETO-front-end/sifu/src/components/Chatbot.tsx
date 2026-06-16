@@ -8,7 +8,7 @@ import { useSubmissions } from "@/contexts/SubmissionContext";
 
 const API_URL =
   import.meta.env.VITE_CHATBOT_API_URL ||
-  "https://api.alanalmeida.sifu5.web.ufersa.dev.br/chatbot";
+  "https://fecslb5103.execute-api.us-east-1.amazonaws.com/Prod/chatbot";
 
 type Message = {
   from: "user" | "bot";

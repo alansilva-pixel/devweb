@@ -10,6 +10,14 @@ const statusColors: Record<string, string> = {
   Aprovado: "bg-green-100 text-green-800",
 };
 
+function getAiStatus(submission: { backendSubmissionId?: string; processingStatus?: string }) {
+  if (!submission.backendSubmissionId) return "envio antigo";
+  if (submission.processingStatus === "ready") return "pronto";
+  if (submission.processingStatus === "failed") return "erro";
+  if (submission.processingStatus === "processing") return "processando";
+  return submission.processingStatus || "na fila";
+}
+
 const Submissions = () => {
   const { submissions } = useSubmissions();
 
@@ -43,7 +51,7 @@ const Submissions = () => {
                       <Badge className={statusColors[sub.status] || "bg-muted"}>{sub.status}</Badge>
                     </TableCell>
                     <TableCell className="text-sm">{sub.fileName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{sub.processingStatus || "queued"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{getAiStatus(sub)}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" className="gap-1">
                         <Download className="h-3.5 w-3.5" />

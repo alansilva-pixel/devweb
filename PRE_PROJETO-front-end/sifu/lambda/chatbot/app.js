@@ -86,7 +86,7 @@ function formatUserContext(context, fallbackName) {
 }
 
 function selectKnowledge(prompt) {
-  const normalized = prompt.toLowerCase();
+  const normalized = normalizeText(prompt);
 
   if (normalized.includes('pdf') || normalized.includes('arquivo') || normalized.includes('documento')) {
     return knowledgeBase.filter((item) => item.includes('PDF') || item.includes('10MB'));
@@ -108,7 +108,7 @@ function selectKnowledge(prompt) {
 }
 
 function fallbackAnswer(prompt, userContext) {
-  const normalized = prompt.toLowerCase();
+  const normalized = normalizeText(prompt);
   const knowledge = selectKnowledge(prompt).join(' ');
   const contextSummary = userContext.lines.join(' ');
   const pdfContext = userContext.pdf
@@ -140,6 +140,13 @@ function fallbackAnswer(prompt, userContext) {
   }
 
   return `Ola, ${userContext.name}! Recebi sua mensagem: "${prompt}". Contexto usado: ${contextSummary}${pdfContext} Conhecimento previo usado: ${knowledge}`;
+}
+
+function normalizeText(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 async function getLatestProcessedSubmission(userId) {
