@@ -1,69 +1,54 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import ufersaLogo from "@/assets/ufersa-logo.png";
 import sifuLogo from "@/assets/sifu.png";
 
 const Login = () => {
-  const { login, loginWithCredentials } = useAuth();
-  const [matricula, setMatricula] = useState("");
-  const [senha, setSenha] = useState("");
+  const { login } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (matricula && senha) loginWithCredentials(matricula, senha);
+  const handleGoogleLogin = async () => {
+    setIsRedirecting(true);
+    try {
+      await login();
+    } catch {
+      setIsRedirecting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative">
-      <a href="https://sifu.web.ufersa.dev.br/" className="absolute top-6 left-6 hover:opacity-80 transition-opacity" title="retorno para SIFU">
+    <div className="relative flex min-h-screen items-center justify-center bg-background">
+      <a
+        href="https://sifu.web.ufersa.dev.br/"
+        className="absolute left-6 top-6 transition-opacity hover:opacity-80"
+        title="retorno para SIFU"
+      >
         <img src={sifuLogo} alt="SIFU" width={64} height={64} className="rounded" />
       </a>
-      <Card className="w-full max-w-md shadow-lg rounded-lg">
-        <CardContent className="pt-8 pb-8 px-8">
-          <div className="flex flex-col items-center mb-8">
+      <Card className="w-full max-w-md rounded-lg shadow-lg">
+        <CardContent className="px-8 pb-8 pt-8">
+          <div className="mb-8 flex flex-col items-center">
             <img src={ufersaLogo} alt="UFERSA" width={120} height={120} className="mb-4" />
-            <h1 className="text-xl font-bold text-primary text-center">
-              SIFU - Sistema Integrado Acadêmico
+            <h1 className="text-center text-xl font-bold text-primary">
+              SIFU - Sistema Integrado Academico
             </h1>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="matricula">Matrícula</Label>
-              <Input
-                id="matricula"
-                value={matricula}
-                onChange={(e) => setMatricula(e.target.value)}
-                placeholder="Digite sua matrícula"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder="Digite sua senha"
-              />
-            </div>
-            <Button type="submit" variant="action" className="w-full" size="lg">
-              Entrar
-            </Button>
-          </form>
-          <div className="relative flex items-center justify-center my-4">
-            <div className="border-t w-full" />
-            <span className="bg-white px-2 text-sm text-muted-foreground absolute">ou</span>
-          </div>
-          <Button variant="outline" className="w-full" size="lg" onClick={login}>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            size="lg"
+            onClick={handleGoogleLogin}
+            disabled={isRedirecting}
+          >
             <img
               src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-              className="w-5 h-5 mr-2"
+              className="mr-2 h-5 w-5"
+              alt=""
             />
-            Entrar com Google
+            {isRedirecting ? "Abrindo Google..." : "Entrar com Google"}
           </Button>
         </CardContent>
       </Card>

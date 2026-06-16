@@ -30,7 +30,8 @@ export const SubmissionProvider = ({ children }: { children: ReactNode }) => {
   const [submissions, setSubmissions] = useState<Submission[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as Submission[]) : [];
+      const parsed = stored ? (JSON.parse(stored) as Submission[]) : [];
+      return parsed.filter((submission) => Boolean(submission.backendSubmissionId));
     } catch {
       return [];
     }

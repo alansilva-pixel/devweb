@@ -11,6 +11,7 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
+  isLoading: boolean;
   login: () => Promise<void>;
   loginWithCredentials: (matricula: string, senha?: string) => void;
   logout: () => void;
@@ -18,6 +19,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const cognitoDomain = "https://us-east-180jtnciqe.auth.us-east-1.amazoncognito.com";
+const LOGIN_NONCE_KEY = "sifu-login-nonce";
 
 function claimToString(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -25,6 +27,17 @@ function claimToString(value: unknown) {
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function createNonce() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function isValidTokenPayload(payload: Record<string, unknown>) {
+  const expiresAt = Number(payload.exp || 0) * 1000;
+  return Boolean(payload.sub) && Boolean(payload["cognito:username"]) && expiresAt > Date.now();
 }
 
 async function fetchUserInfo(accessToken?: string) {
@@ -60,9 +73,11 @@ async function getCognitoAttributes() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadUser = async () => {
     try {
+      setIsLoading(true);
       let session = await fetchAuthSession();
       let idToken = session.tokens?.idToken;
 
@@ -78,6 +93,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = idToken.payload;
+      const expectedNonce = sessionStorage.getItem(LOGIN_NONCE_KEY);
+
+      if (!isValidTokenPayload(payload)) {
+        throw new Error("Token de login invalido ou expirado.");
+      }
+
+      if (expectedNonce && claimToString(payload.nonce) !== expectedNonce) {
+        await signOut().catch(() => {});
+        sessionStorage.removeItem(LOGIN_NONCE_KEY);
+        throw new Error("Token de login nao corresponde a tentativa atual.");
+      }
+
+      if (expectedNonce) {
+        sessionStorage.removeItem(LOGIN_NONCE_KEY);
+      }
+
       const attributes = await getCognitoAttributes();
       const userInfo = await fetchUserInfo(session.tokens?.accessToken?.toString());
       const email =
@@ -113,6 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch {
       setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -141,20 +174,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async () => {
+    const nonce = createNonce();
+    sessionStorage.setItem(LOGIN_NONCE_KEY, nonce);
+
     try {
-      await signOut();
+      await signOut({ global: true });
     } catch {
       // Ignora erro ao limpar uma sessao anterior.
     }
-    await signInWithRedirect({ provider: "Google" });
+    await signInWithRedirect({
+      provider: "Google",
+      options: {
+        prompt: "SELECT_ACCOUNT",
+        nonce,
+        lang: "pt-BR",
+      },
+    });
   };
 
   const loginWithCredentials = (matricula: string) => {
-    setUser({
-      nome: "Aluno Teste",
-      matricula,
-      email: `${matricula}@alunos.ufersa.edu.br`,
-    });
+    console.warn("Login local bloqueado. Use o login com Google para gerar token Cognito.", matricula);
   };
 
   const logout = () => {
@@ -163,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, loginWithCredentials, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithCredentials, logout }}>
       {children}
     </AuthContext.Provider>
   );
