@@ -6,8 +6,10 @@ Esta etapa altera a rota `POST /chatbot` para:
 - responder ao chat usando Bedrock quando disponivel no Learner Lab;
 - salvar request e response na tabela DynamoDB `sifu-alana-chat`;
 - manter o componente de chat disponivel apenas para usuario logado na aplicacao;
-- receber do front-end um bloco `context` com informacoes da interacao atual:
-  usuario logado, status mais recente e ultimo arquivo de pre-projeto enviado;
+- receber do front-end apenas a mensagem e um `conversationId`;
+- consultar no backend a identidade autenticada, o status e o ultimo arquivo,
+  sem confiar em dados de perfil enviados pelo navegador;
+- recuperar as ultimas interacoes da mesma conversa para manter contexto;
 - combinar esse contexto com uma base de conhecimento fixa sobre o SIFU,
   mostrando na resposta quais informacoes vieram da interacao e quais vieram
   do conhecimento previamente disponibilizado ao agente.
@@ -59,10 +61,10 @@ Quais informacoes voce esta usando da minha interacao e da base do SIFU?
 
 6. Clique na chamada `chatbot`.
 7. Tire print da aba **Payload** mostrando o JSON enviado. O professor deve ver
-   `message` e `context`, incluindo `user` e `submissionSummary`.
+   `message` e `conversationId`, sem dados sensiveis de perfil.
 8. Tire print da aba **Response** mostrando a resposta da IA. Ela deve citar
-   informacoes da interacao, como usuario/status/arquivo, e tambem conhecimento
-   previo do SIFU, como PDF unico, limite de 10MB, Cognito, DynamoDB ou Bedrock.
+   o contexto confiavel consultado no Cognito/DynamoDB e o conhecimento previo
+   do SIFU, como PDF unico, limite de 10MB, Cognito, DynamoDB ou Bedrock.
 
 ## Teste local com SAM
 
