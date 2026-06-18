@@ -1,5 +1,8 @@
 {
   "name": "sifu-authorizer-lambda",
   "version": "1.0.0",
-  "type": "commonjs"
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test app.test.js"
+  }
 }

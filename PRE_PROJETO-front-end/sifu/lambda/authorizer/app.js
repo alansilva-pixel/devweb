@@ -74,14 +74,24 @@ function policy(principalId, effect, resource, claims = {}) {
   };
 }
 
+function stageResource(methodArn) {
+  const [apiArn, stage] = String(methodArn || '').split('/');
+  if (!apiArn || !stage) throw new Error('ARN da API invalido.');
+  return `${apiArn}/${stage}/*/*`;
+}
+
 exports.handler = async (event) => {
   try {
     const authorization = event.headers?.Authorization || event.headers?.authorization || '';
     const token = authorization.replace(/^Bearer\s+/i, '').trim();
     const claims = await verifyToken(token);
-    return policy(String(claims.sub || claims.username), 'Allow', event.methodArn, claims);
+    return policy(String(claims.sub || claims.username), 'Allow', stageResource(event.methodArn), claims);
   } catch (error) {
     console.warn('Token rejeitado pelo authorizer.', error.message);
     throw new Error('Unauthorized');
   }
+};
+
+exports._test = {
+  stageResource,
 };
