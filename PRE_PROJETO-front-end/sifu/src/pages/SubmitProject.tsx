@@ -34,14 +34,17 @@ const SubmitProject = () => {
     setError("");
     setIsSubmitting(true);
 
+    let currentStep = "autenticação";
+
     try {
       const session = await fetchAuthSession();
-      const token = session.tokens?.accessToken?.toString();
+      const token = session.tokens?.idToken?.toString() || session.tokens?.accessToken?.toString();
 
       if (!token) {
         throw new Error("Usuario sem token de autenticacao.");
       }
 
+      currentStep = "criação da submissão";
       const createResponse = await fetch(SUBMISSIONS_API_URL, {
         method: "POST",
         headers: {
@@ -69,6 +72,7 @@ const SubmitProject = () => {
         throw new Error(createData.message || "Nao foi possivel iniciar o envio.");
       }
 
+      currentStep = "upload do PDF";
       const uploadResponse = await fetch(createData.uploadUrl, {
         method: "PUT",
         headers: {
@@ -78,9 +82,10 @@ const SubmitProject = () => {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("Nao foi possivel enviar o PDF para o S3.");
+        throw new Error(`Nao foi possivel enviar o PDF para o S3 (HTTP ${uploadResponse.status}).`);
       }
 
+      currentStep = "confirmação do envio";
       const completeResponse = await fetch(`${SUBMISSIONS_API_URL}/${createData.submissionId}/complete`, {
         method: "POST",
         headers: {
@@ -108,7 +113,8 @@ const SubmitProject = () => {
 
       navigate("/confirmacao", { state: sub });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Nao foi possivel enviar o pre-projeto.");
+      const message = submitError instanceof Error ? submitError.message : "Erro desconhecido.";
+      setError(`Falha na etapa de ${currentStep}: ${message}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -91,10 +91,6 @@ async function createSubmission(event) {
       Bucket: bucket,
       Key: s3Key,
       ContentType: contentType,
-      Metadata: {
-        userId: user.userId,
-        submissionId,
-      },
     }),
     { expiresIn: 300 },
   );
