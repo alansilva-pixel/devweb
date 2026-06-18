@@ -34,6 +34,9 @@ const Login = () => {
             <h1 className="text-center text-xl font-bold text-primary">
               SIFU - Sistema Integrado Academico
             </h1>
+            <p className="mt-3 text-center text-sm text-muted-foreground">
+              Faça login com sua conta Google institucional.
+            </p>
           </div>
 
           <Button
