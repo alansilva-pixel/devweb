@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const API_URL =
   import.meta.env.VITE_CHATBOT_API_URL ||
-  "https://fecslb5103.execute-api.us-east-1.amazonaws.com/Prod/chatbot";
+  "https://04v1gt1t9a.execute-api.us-east-1.amazonaws.com/Prod/chatbot";
 
 type Message = {
   from: "user" | "bot";

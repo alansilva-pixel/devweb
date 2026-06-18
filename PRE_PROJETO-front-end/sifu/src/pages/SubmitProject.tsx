@@ -12,7 +12,7 @@ import { AlertCircle, Upload } from "lucide-react";
 
 const SUBMISSIONS_API_URL =
   import.meta.env.VITE_SUBMISSIONS_API_URL ||
-  "https://fecslb5103.execute-api.us-east-1.amazonaws.com/Prod/submissions";
+  "https://04v1gt1t9a.execute-api.us-east-1.amazonaws.com/Prod/submissions";
 
 const SubmitProject = () => {
   const { user } = useAuth();
