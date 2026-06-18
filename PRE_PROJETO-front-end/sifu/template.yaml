@@ -42,7 +42,7 @@ Resources:
       StageName: Prod
       EndpointConfiguration: REGIONAL
       Cors:
-        AllowMethods: "'POST,PUT,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       GatewayResponses:
@@ -273,8 +273,12 @@ Resources:
             RestApiId: !Ref SifuChatbotApi
             Path: /profile
             Method: put
-            Auth:
-              Authorizer: NONE
+        ProfileGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SifuChatbotApi
+            Path: /profile
+            Method: get
 
 Outputs:
   ChatbotApiUrl:

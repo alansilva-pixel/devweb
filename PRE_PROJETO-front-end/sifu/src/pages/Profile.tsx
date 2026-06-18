@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { Camera, Save, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ type SavedProfile = {
   telefone: string;
   bio: string;
   photoUri: string;
+  photoUrl?: string;
   updatedAt: string;
 };
 
@@ -30,7 +32,7 @@ function readFileAsDataUrl(file: File) {
 }
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [nome, setNome] = useState(user?.nome || "");
   const [email, setEmail] = useState(user?.email || "");
   const [matricula, setMatricula] = useState(user?.matricula || "");
@@ -43,21 +45,33 @@ const Profile = () => {
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const pageUrl = useMemo(() => window.location.href, []);
-  const currentPhotoUrl = previewUrl || user?.fotoUrl || "";
+  const currentPhotoUrl = previewUrl || savedProfile?.photoUrl || user?.fotoUrl || "";
 
   useEffect(() => {
     if (!user) return;
-
     setNome(user.nome);
     setEmail(user.email);
     setMatricula(user.matricula);
   }, [user]);
 
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   const handlePhotoChange = (file?: File) => {
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setStatus("Selecione um arquivo de imagem válido.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus("A foto deve ter no máximo 5MB.");
+      return;
+    }
+
     setPhotoFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    setStatus("");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -65,23 +79,27 @@ const Profile = () => {
     setStatus("");
 
     if (!apiUrl) {
-      setStatus("Configure VITE_PROFILE_API_URL com a URL do output ProfileApiUrl.");
+      setStatus("Configure VITE_PROFILE_API_URL com a URL do perfil.");
       return;
     }
-
     if (!photoFile) {
-      setStatus("Selecione uma foto de perfil diferente da foto do login.");
+      setStatus("Selecione uma nova foto de perfil.");
       return;
     }
 
     setIsSaving(true);
 
     try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString() || session.tokens?.accessToken?.toString();
+      if (!token) throw new Error("Sessão expirada. Entre novamente.");
+
       const photoBase64 = await readFileAsDataUrl(photoFile);
       const response = await fetch(apiUrl, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           nome,
@@ -97,12 +115,12 @@ const Profile = () => {
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Não foi possível atualizar o perfil.");
-      }
+      if (!response.ok) throw new Error(data.message || "Não foi possível atualizar o perfil.");
 
       setSavedProfile(data.profile);
+      setPhotoFile(null);
+      setPreviewUrl("");
+      await refreshUser();
       setStatus(data.message || "Perfil atualizado com sucesso.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Não foi possível atualizar o perfil.");
@@ -113,10 +131,7 @@ const Profile = () => {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-primary">Perfil do Usuário</h1>
-        <p className="text-sm text-muted-foreground">{pageUrl}</p>
-      </div>
+      <h1 className="text-2xl font-bold text-primary">Perfil do Usuário</h1>
 
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <Card className="shadow-sm">
@@ -138,7 +153,7 @@ const Profile = () => {
               onChange={(event) => handlePhotoChange(event.target.files?.[0])}
             />
             <p className="text-xs text-muted-foreground">
-              Selecione uma imagem nova para gravar no bucket S3 da atividade.
+              A foto será armazenada no S3 e carregada em qualquer dispositivo após o login. Máximo: 5MB.
             </p>
           </CardContent>
         </Card>
@@ -155,7 +170,7 @@ const Profile = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+                <Input id="email" type="email" value={email} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="matricula">Matrícula</Label>
@@ -184,9 +199,7 @@ const Profile = () => {
 
             {savedProfile && (
               <div className="rounded-md border bg-muted/40 p-4 text-sm">
-                <p className="font-medium text-foreground">Perfil salvo no DynamoDB</p>
-                <p className="text-muted-foreground">{savedProfile.email}</p>
-                <p className="text-muted-foreground">{savedProfile.photoUri}</p>
+                <p className="font-medium text-foreground">Perfil salvo na AWS</p>
                 <p className="text-muted-foreground">Atualizado em {savedProfile.updatedAt}</p>
               </div>
             )}

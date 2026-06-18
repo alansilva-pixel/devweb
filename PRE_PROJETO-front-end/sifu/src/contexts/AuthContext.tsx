@@ -16,10 +16,12 @@ type AuthContextType = {
   login: () => Promise<void>;
   loginWithCredentials: (matricula: string, senha?: string) => void;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const cognitoDomain = "https://us-east-180jtnciqe.auth.us-east-1.amazoncognito.com";
+const profileApiUrl = import.meta.env.VITE_PROFILE_API_URL as string | undefined;
 const LOGIN_NONCE_KEY = "sifu-login-nonce";
 
 function claimToString(value: unknown) {
@@ -62,6 +64,21 @@ async function fetchUserInfo(accessToken?: string) {
 function getFallbackName(email: string, username: string) {
   if (email) return email.split("@")[0];
   return username.startsWith("google_") ? "Usuario Google" : username || "Usuario";
+}
+
+async function fetchStoredProfile(token?: string) {
+  if (!profileApiUrl || !token) return null;
+
+  try {
+    const response = await fetch(profileApiUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.profile as { nome?: string; matricula?: string; photoUrl?: string };
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -123,13 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         claimToString(payload.picture) ||
         claimToString(userInfo.profile) ||
         claimToString(payload.profile);
+      const storedProfile = await fetchStoredProfile(idToken.toString());
 
       setUser({
         id: userId,
-        nome,
-        matricula: email || username,
+        nome: claimToString(storedProfile?.nome) || nome,
+        matricula: claimToString(storedProfile?.matricula) || email || username,
         email,
-        fotoUrl: fotoUrl || undefined,
+        fotoUrl: claimToString(storedProfile?.photoUrl) || fotoUrl || undefined,
       });
     } catch {
       setUser(null);
@@ -200,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithCredentials, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithCredentials, logout, refreshUser: loadUser }}>
       {children}
     </AuthContext.Provider>
   );
