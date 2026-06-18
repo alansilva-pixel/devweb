@@ -46,13 +46,16 @@ Resources:
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Auth:
-        DefaultAuthorizer: SifuCognitoAuthorizer
+        DefaultAuthorizer: SifuLambdaAuthorizer
         AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
-          SifuCognitoAuthorizer:
-            UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+          SifuLambdaAuthorizer:
+            FunctionArn: !GetAtt SifuAuthorizerFunction.Arn
+            FunctionPayloadType: REQUEST
             Identity:
-              Header: Authorization
+              Headers:
+                - Authorization
+              ReauthorizeEvery: 300
 
   SifuApiCustomDomain:
     Type: AWS::ApiGateway::DomainName
@@ -125,7 +128,7 @@ Resources:
   SifuSubmissionBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub sifu-${StudentName}-submissions-2026-1
+      BucketName: !Sub sifu-${StudentName}-${AWS::AccountId}-submissions-2026-1
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -145,7 +148,7 @@ Resources:
   SifuSubmissionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub sifu-${StudentName}-submissions
+      TableName: !Sub sifu-${StudentName}-${AWS::AccountId}-submissions
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -161,8 +164,19 @@ Resources:
   SifuPdfProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub sifu-${StudentName}-pdf-processing
+      QueueName: !Sub sifu-${StudentName}-${AWS::AccountId}-pdf-processing
       VisibilityTimeout: 180
+
+  SifuAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sifu-${StudentName}-${AWS::AccountId}-authorizer
+      CodeUri: lambda/authorizer/
+      Handler: app.handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
 
   SifuChatbotFunction:
     Type: AWS::Serverless::Function
@@ -187,7 +201,7 @@ Resources:
   SifuSubmissionsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: sifu-submissions
+      FunctionName: !Sub sifu-${StudentName}-${AWS::AccountId}-submissions
       CodeUri: lambda/submissions/
       Handler: app.handler
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
@@ -213,7 +227,7 @@ Resources:
   SifuPdfProcessorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: sifu-pdf-processor
+      FunctionName: !Sub sifu-${StudentName}-${AWS::AccountId}-pdf-processor
       CodeUri: lambda/pdf-processor/
       Handler: app.handler
       Timeout: 120

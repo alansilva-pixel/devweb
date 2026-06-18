@@ -31,7 +31,7 @@ function response(statusCode, body) {
 }
 
 function getClaims(event) {
-  return event.requestContext?.authorizer?.claims || {};
+  return event.requestContext?.authorizer?.claims || event.requestContext?.authorizer || {};
 }
 
 function getPrompt(payload) {
