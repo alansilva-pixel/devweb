@@ -107,6 +107,107 @@ function clip(text, maxLength = 1200) {
   return `${value.slice(0, maxLength).trim()}...`;
 }
 
+function requestedFormat(prompt) {
+  const normalized = normalizeText(prompt);
+  const lineMatch = normalized.match(/\b(\d{1,2})\s*linhas?\b/);
+  const wordMatch = normalized.match(/\b(\d{1,3})\s*palavras?\b/);
+  return {
+    lines: lineMatch ? Math.min(Math.max(Number(lineMatch[1]), 1), 20) : null,
+    words: wordMatch ? Math.min(Math.max(Number(wordMatch[1]), 10), 300) : null,
+    bullets: hasAny(normalized, ['topicos', 'topico', 'bullet', 'lista']),
+  };
+}
+
+function uniqueSentences(text) {
+  const seen = new Set();
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+|\s+(?=[A-ZÁÉÍÓÚÇ][^.!?]{10,}:)/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => {
+      const key = normalizeText(sentence).replace(/\W/g, '').slice(0, 180);
+      if (sentence.length < 20 || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function limitWords(text, count) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const limited = words.slice(0, count).join(' ');
+  return words.length > count ? `${limited}...` : limited;
+}
+
+function summarizeInLines(text, lineCount) {
+  const sentences = uniqueSentences(text);
+  const source = sentences.length ? sentences.join(' ') : String(text || '');
+  const words = source.split(/\s+/).filter(Boolean).slice(0, lineCount * 14);
+  if (!words.length) return 'Nao consegui extrair texto suficiente do PDF.';
+
+  const actualLines = Math.min(lineCount, words.length);
+  const lines = [];
+  let cursor = 0;
+  for (let index = 0; index < actualLines; index += 1) {
+    const remainingWords = words.length - cursor;
+    const remainingLines = actualLines - index;
+    const take = Math.ceil(remainingWords / remainingLines);
+    lines.push(`${index + 1}. ${words.slice(cursor, cursor + take).join(' ')}`);
+    cursor += take;
+  }
+  return lines.join('\n');
+}
+
+const queryStopWords = new Set([
+  'a', 'as', 'o', 'os', 'de', 'da', 'das', 'do', 'dos', 'e', 'em', 'um', 'uma', 'meu', 'minha',
+  'pre', 'projeto', 'pdf', 'arquivo', 'documento', 'fale', 'diga', 'quero', 'sobre', 'qual', 'quais',
+  'como', 'para', 'por', 'que', 'resuma', 'resumo', 'analise', 'analisar',
+]);
+
+function relevantExcerpt(prompt, text) {
+  const terms = normalizeText(prompt)
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter((term) => term.length > 2 && !queryStopWords.has(term));
+  const sentences = uniqueSentences(text);
+  if (!sentences.length) return clip(text, 900);
+
+  const ranked = sentences
+    .map((sentence, index) => {
+      const normalized = normalizeText(sentence);
+      const score = terms.reduce((total, term) => total + (normalized.includes(term) ? 2 : 0), 0);
+      return { sentence, index, score };
+    })
+    .sort((left, right) => right.score - left.score || left.index - right.index);
+  const matches = ranked.filter((item) => item.score > 0).slice(0, 4);
+  return (matches.length ? matches : ranked.slice(0, 3)).map((item) => item.sentence).join(' ');
+}
+
+function answerFromPdf(prompt, pdf) {
+  const normalized = normalizeText(prompt);
+  const format = requestedFormat(prompt);
+  const source = pdf.extractedText || pdf.summary || '';
+  const isSummary = hasAny(normalized, ['resum', 'sintetiz', 'em poucas palavras']);
+
+  if (isSummary && format.lines) {
+    return `Resumo de "${pdf.fileName}" em ${format.lines} linhas:\n${summarizeInLines(source, format.lines)}`;
+  }
+
+  if (isSummary && format.words) {
+    return `Resumo de "${pdf.fileName}" em ate ${format.words} palavras:\n${limitWords(relevantExcerpt(prompt, source), format.words)}`;
+  }
+
+  if (isSummary && format.bullets) {
+    const topics = uniqueSentences(source).slice(0, 6);
+    return `Resumo de "${pdf.fileName}" em topicos:\n${topics.map((item) => `- ${item}`).join('\n')}`;
+  }
+
+  if (isSummary) {
+    return `Resumo do arquivo "${pdf.fileName}": ${clip(pdf.summary || relevantExcerpt(prompt, source))}`;
+  }
+
+  return `Com base em "${pdf.fileName}": ${clip(relevantExcerpt(prompt, source), 1200)}`;
+}
+
 function fallbackAnswer(prompt, userContext) {
   const normalized = normalizeText(prompt);
   const pdf = userContext.pdf;
@@ -142,7 +243,7 @@ function fallbackAnswer(prompt, userContext) {
       return `Encontrei seu envio, mas o PDF ainda esta em processamento. Status atual: ${pdf.processingStatus}. Tente novamente em instantes.`;
     }
 
-    return `Resumo do arquivo "${pdf.fileName}": ${clip(pdf.summary || pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.')}`;
+    return answerFromPdf(prompt, pdf);
   }
 
   if (shouldUsePdf(prompt)) {
@@ -156,7 +257,7 @@ function fallbackAnswer(prompt, userContext) {
 
     return [
       'Encontrado no documento',
-      clip(pdf.summary || pdf.extractedText || 'Nao consegui extrair texto suficiente do PDF.'),
+      clip(relevantExcerpt(prompt, pdf.extractedText || pdf.summary), 1200),
       '',
       'Nao identificado',
       'A analise local nao consegue confirmar itens que nao aparecem no resumo armazenado.',
@@ -462,6 +563,9 @@ exports.handler = async (event) => {
 
 exports._test = {
   academicInstructions,
+  answerFromPdf,
   getConversationId,
+  requestedFormat,
+  summarizeInLines,
   shouldUsePdf,
 };
